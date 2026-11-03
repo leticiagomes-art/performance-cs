@@ -325,15 +325,14 @@
     };
   })();
 
-  // Somas por período: cada mês com dados e os últimos 30 dias
+  // Somas por período: cada mês com dados e cada semana
   dash.calc("periodos", {
     title: "Totais por período",
-    description: "Soma dos números diários por mês, por semana (segunda a domingo) e nos últimos 30 dias; pedidos e retidos só nos dias com export de reembolsos.",
+    description: "Soma dos números diários por mês, e por semana (segunda a domingo; a semana conta no mês em que começa); pedidos e retidos só nos dias com export de reembolsos.",
     inputs: ["dias"],
     fn: (dias) => {
       const NOMES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
       const fim = dias[dias.length - 1].dia;
-      const de30 = new Date(Date.parse(fim) - 29 * 864e5).toISOString().slice(0, 10);
       const meses = [...new Set(dias.map((r) => r.dia.slice(0, 7)))];
       const dm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
       const iso = (t) => new Date(t).toISOString().slice(0, 10);
@@ -342,13 +341,12 @@
         const de = iso(t) < dias[0].dia ? dias[0].dia : iso(t);
         const ate = iso(t + 6 * 864e5) > fim ? fim : iso(t + 6 * 864e5);
         const domingo = iso(t + 6 * 864e5), andamento = domingo > fim;
-        semanas.push({ periodo: `s${iso(t)}`, tipo: "semana", rotulo: `Na semana de ${dm(de)} a ${dm(domingo)}`, curto: `${dm(de)}–${dm(domingo)}`,
+        semanas.push({ periodo: `s${iso(t)}`, tipo: "semana", mes: de.slice(0, 7), rotulo: `Na semana de ${dm(de)} a ${dm(domingo)}`, curto: `${dm(de)}–${dm(domingo)}`,
           nome: `Semana de ${dm(de)} a ${dm(domingo)}`, andamento, de, ate });
       }
       const janelas = [
-        ...meses.map((m) => ({ periodo: m, tipo: "mes", nome: `${NOMES[+m.slice(5) - 1][0].toUpperCase()}${NOMES[+m.slice(5) - 1].slice(1)} de ${m.slice(0, 4)}`,
+        ...meses.map((m) => ({ periodo: m, tipo: "mes", mes: m, nome: `${NOMES[+m.slice(5) - 1][0].toUpperCase()}${NOMES[+m.slice(5) - 1].slice(1)} de ${m.slice(0, 4)}`,
           andamento: `${m}-31` > fim && new Date(Date.parse(fim) + 864e5).toISOString().slice(0, 7) === m, rotulo: `Em ${NOMES[+m.slice(5) - 1]} de ${m.slice(0, 4)}`, curto: `${NOMES[+m.slice(5) - 1][0].toUpperCase()}${NOMES[+m.slice(5) - 1].slice(1, 3)}/${m.slice(2, 4)}`, de: `${m}-01`, ate: `${m}-31` })),
-        { periodo: "30d", tipo: "mes", nome: "Últimos 30 dias", andamento: false, rotulo: "Nos últimos 30 dias", curto: "30 dias", de: de30, ate: fim },
         ...semanas,
       ];
       return janelas.map((j) => {
@@ -406,7 +404,7 @@
   // Resolvidos por atendente em cada período
   dash.calc("time", {
     title: "Resolvidos por atendente",
-    description: "Soma por atendente em cada mês, semana e nos últimos 30 dias; por dia útil divide pelos dias de segunda a sexta do período com dados.",
+    description: "Soma por atendente em cada mês e semana; por dia útil divide pelos dias de segunda a sexta do período com dados.",
     inputs: ["agentes", "periodos", "dias"],
     fn: (agentes, periodos, dias) => {
       const out = [];
@@ -433,7 +431,7 @@
     el.replaceChildren();
     const g = dash.data("periodos");
     if (g.status !== "ok") return;
-    const ws = g.data.filter((r) => r.tipo === "semana");
+    const ws = g.data.filter((r) => r.tipo === "semana" && r.mes === pfPeriodo()?.mes);
     const atual = pfPeriodo();
     const maxV = d3.max(ws, (r) => r.volume) || 1;
     const tb = document.createElement("table"); tb.className = "pf-sem";
@@ -538,7 +536,7 @@
     for (const [nome, tipo] of [["Mês", "mes"], ["Semana", "semana"]]) {
       const grupo = document.createElement("div"); grupo.className = "pf-seg-g";
       const t = document.createElement("span"); t.className = "pf-seg-t"; t.textContent = nome; grupo.appendChild(t);
-      for (const r of g.data.filter((x) => x.tipo === tipo)) {
+      for (const r of g.data.filter((x) => x.tipo === tipo && (tipo === "mes" || x.mes === atual.mes))) {
         const b = document.createElement("button");
         b.type = "button";
         b.textContent = r.curto;
