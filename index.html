@@ -617,7 +617,7 @@
       ["Salvos com parcial", p.parciais, "var(--pf-purple)", `${pf.usdCheio(p.usd_salvo_parcial)} mantidos`, "parciais"],
       ["Reembolso integral pelo CS", p.integrais, "var(--pf-red)", "devolvido ao cliente", "integrais"],
       ["Retidos, mas reembolsados depois pela BuyGoods", p.bg_depois, "var(--pf-orange)", `${pf.usd(p.usd_bg_depois)} devolvidos lá`, "bg_depois"],
-      ["Sem retenção", p.sem_retencao, "var(--pf-gray)", "seguiram para reembolso fora do CS", "sem_retencao"],
+      ["Desistência de contato", p.sem_retencao, "var(--pf-gray)", "pararam de responder ao CS", "sem_retencao"],
     ];
     const tot = d3.sum(partes, (x) => x[1]) || 1;
     const bar = document.createElement("div"); bar.className = "pf-out-bar";
