@@ -301,7 +301,7 @@
     </section>
 
     <section class="pf-card" id="time">
-      <h2>Tickets atendidos por atendente <span class="pf-badge">soma do time: <span id="time-soma">—</span></span></h2>
+      <h2>Tickets atendidos por atendente <span class="pf-badge">soma do time: <span data-draw="time-soma" data-source="time" data-field="atendidos">—</span></span></h2>
       <div class="pf-agents" data-draw="time" data-source="time"></div>
     </section>
 
@@ -751,14 +751,20 @@
       .on("mouseleave", () => tip.hide());
   });
 
+  dash.draw("time-soma", (el) => {
+    const g = dash.data("time"), p = pfPeriodo();
+    if (g.status !== "ok" || !p) { el.textContent = "—"; return; }
+    const doTime = g.data.filter((x) => x.periodo === p.periodo);
+    el.dataset.where = `periodo=${p.periodo}`;
+    el.textContent = `${pf.int(d3.sum(doTime, (r) => r.atendidos))} tickets · ${pf.int(Math.round(d3.sum(doTime, (r) => r.por_dia || 0)))} por dia`;
+  });
+
   dash.draw("time", (el) => {
     el.replaceChildren();
     const g = dash.data("time"), p = pfPeriodo();
     if (g.status !== "ok" || !p) return;
     const CORES = { Heitor: "var(--pf-blue)", "Natália": "var(--pf-orange)", Neythan: "var(--pf-green)", Yasmin: "var(--pf-purple)" };
     const doTime = g.data.filter((x) => x.periodo === p.periodo);
-    const soma = document.getElementById("time-soma");
-    if (soma) soma.textContent = `${pf.int(d3.sum(doTime, (r) => r.atendidos))} tickets · ${pf.int(Math.round(d3.sum(doTime, (r) => r.por_dia || 0)))} por dia`;
     for (const r of doTime) {
       const card = document.createElement("div"); card.className = "pf-agent";
       card.style.setProperty("--ac", CORES[r.agente] || "var(--pf-gray)");
