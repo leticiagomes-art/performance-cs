@@ -411,7 +411,8 @@
       for (const p of periodos) {
         // dia útil de atendimento: segunda a sexta em que a pessoa atendeu pelo menos 1 ticket
         const util = (r) => { const w = new Date(r.dia).getUTCDay(); return w > 0 && w < 6 && (+r.atendidos || 0) > 0; };
-        const doPer = agentes.filter((r) => r.dia >= p.de && r.dia <= p.ate);
+        // conta de feriado (Tiger Offers) não é atendente: fica fora dos cartões e da soma
+        const doPer = agentes.filter((r) => r.dia >= p.de && r.dia <= p.ate && !/^tiger o/i.test(r.agente || ""));
         const por = d3.rollup(doPer,
           (rs) => ({ atendidos: d3.sum(rs, (r) => +r.atendidos || 0), resolvidos: d3.sum(rs, (r) => +r.resolvidos || 0), fd_respostas: d3.sum(rs, (r) => +r.fd_respostas || 0),
                      dias_uteis: new Set(rs.filter(util).map((r) => r.dia)).size }), (r) => r.agente);
