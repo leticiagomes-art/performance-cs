@@ -404,15 +404,19 @@
   // Resolvidos por atendente em cada período
   dash.calc("time", {
     title: "Resolvidos por atendente",
-    description: "Soma por atendente em cada mês e semana. Tickets atendidos: os tickets atendidos de cada dia divididos entre os atendentes (interações no Freshdesk + parte dos tickets da BuyGoods proporcional ao que cada um resolveu lá), então a soma do time bate com o total. Por dia divide pelos dias do período com dados.",
+    description: "Soma por atendente em cada mês e semana. Tickets atendidos: os tickets atendidos de cada dia divididos entre os atendentes (interações no Freshdesk + parte dos tickets da BuyGoods proporcional ao que cada um resolveu lá), então a soma do time bate com o total. Por dia útil divide os tickets atendidos pelos dias úteis de atendimento: segunda a sexta em que a pessoa atendeu pelo menos 1 ticket (fim de semana trabalhado soma nos tickets, mas não conta como dia).",
     inputs: ["agentes", "periodos", "dias"],
     fn: (agentes, periodos, dias) => {
       const out = [];
       for (const p of periodos) {
-        const uteis = dias.filter((r) => { const w = new Date(r.dia).getUTCDay(); return r.dia >= p.de && r.dia <= p.ate && w > 0 && w < 6; }).length;
-        const por = d3.rollup(agentes.filter((r) => r.dia >= p.de && r.dia <= p.ate),
-          (rs) => ({ atendidos: d3.sum(rs, (r) => +r.atendidos || 0), resolvidos: d3.sum(rs, (r) => +r.resolvidos || 0), fd_respostas: d3.sum(rs, (r) => +r.fd_respostas || 0) }), (r) => r.agente);
-        for (const [agente, v] of por) out.push({ periodo: p.periodo, agente, ...v, por_dia: p.dias ? v.atendidos / p.dias : null, por_dia_util: uteis ? v.resolvidos / uteis : null });
+        // dia útil de atendimento: segunda a sexta em que a pessoa atendeu pelo menos 1 ticket
+        const util = (r) => { const w = new Date(r.dia).getUTCDay(); return w > 0 && w < 6 && (+r.atendidos || 0) > 0; };
+        const doPer = agentes.filter((r) => r.dia >= p.de && r.dia <= p.ate);
+        const por = d3.rollup(doPer,
+          (rs) => ({ atendidos: d3.sum(rs, (r) => +r.atendidos || 0), resolvidos: d3.sum(rs, (r) => +r.resolvidos || 0), fd_respostas: d3.sum(rs, (r) => +r.fd_respostas || 0),
+                     dias_uteis: new Set(rs.filter(util).map((r) => r.dia)).size }), (r) => r.agente);
+        const uteisTime = new Set(doPer.filter(util).map((r) => r.dia)).size;
+        for (const [agente, v] of por) out.push({ periodo: p.periodo, agente, ...v, uteis_time: uteisTime, por_dia_util: v.dias_uteis ? v.atendidos / v.dias_uteis : null });
       }
       return out.sort((a, b) => b.atendidos - a.atendidos);
     },
@@ -756,7 +760,8 @@
     if (g.status !== "ok" || !p) { el.textContent = "—"; return; }
     const doTime = g.data.filter((x) => x.periodo === p.periodo);
     el.dataset.where = `periodo=${p.periodo}`;
-    el.textContent = `${pf.int(d3.sum(doTime, (r) => r.atendidos))} tickets · ${pf.int(Math.round(d3.sum(doTime, (r) => r.por_dia || 0)))} por dia`;
+    const uteis = d3.max(doTime, (r) => r.uteis_time) || 0, tot = d3.sum(doTime, (r) => r.atendidos);
+    el.textContent = `${pf.int(tot)} tickets · ${uteis ? pf.int(Math.round(tot / uteis)) : "—"} por dia útil`;
   });
 
   dash.draw("time", (el) => {
@@ -772,7 +777,7 @@
       const nome = document.createElement("div"); nome.className = "pf-agent-name"; nome.textContent = r.agente;
       nome.dataset.source = "time"; nome.dataset.field = "agente"; nome.dataset.where = onde;
       const st = document.createElement("div"); st.className = "pf-agent-stats";
-      for (const [rot, campo, fmt] of [["Tickets atendidos", "atendidos", pf.int], ["Por dia", "por_dia", pf.int], ["Resolvidos", "resolvidos", pf.int]]) {
+      for (const [rot, campo, fmt] of [["Tickets atendidos", "atendidos", pf.int], ["Por dia útil", "por_dia_util", (v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })], ["Resolvidos", "resolvidos", pf.int]]) {
         const c = document.createElement("div");
         const a = document.createElement("span"); a.textContent = rot;
         const b = document.createElement("b"); b.textContent = r[campo] == null ? "—" : fmt(r[campo]);
